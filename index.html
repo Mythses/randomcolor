@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<body style="background-color:powderblue; display: flex; align-items: center; justify-content: center; height: calc(100vh - 16px);">
+    <h1 id="skibiti" style="font-family: Roboto, sans-serif; text-align: center">loading</h1>
+</body>
+<title>Colorizer</title>    
+</html>
+
+<script>
+
+let apiUrl = `https://hi-rewis.maxicode.workers.dev/?url=https://colornames.org/random/json`;
+
+apiData = {};
+// Make a GET request
+fetch(apiUrl)
+  .then(response => response.json())
+  .then(data => {
+    console.log(data);
+    //filter(data);
+    apiData = data;
+    document.body.style.backgroundColor = "#" + data.hexCode;
+	const skibiti = document.getElementById("skibiti")
+    skibiti.textContent = data.name;
+    skibiti.style.color = "#" + [data.hexCode.slice(0, 2),data.hexCode.slice(2, 4),data.hexCode.slice(4, 6)].map(x => (255-parseInt(x, 16)).toString(16)).join("")
+    console.log(data.hexCode);
+    //console.log(apiData)
+  })
+  .catch(error => console.error('Error fetching colornames/hi-rewis api:', error));
+//document.body.style.backgroundColor = apiData.hexCode; 
+//console.log(data.hexCode);
+</script>
