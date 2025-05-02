@@ -1,42 +1,415 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-QC9TD3HHM3"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-QC9TD3HHM3');
-</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Color</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QC9TD3HHM3"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-QC9TD3HHM3');
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s ease-in-out; /* Smooth background transition */
+        }
+        /* Style for the clickable color elements */
+        .color-info-item {
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out;
+            display: block; /* Ensure items take full width in grid cells */
+            width: 100%; /* Ensure items take full width in grid cells */
+            text-align: center; /* Center text within the items */
+        }
+        .color-info-item:hover {
+            opacity: 0.9; /* Subtle opacity change on hover */
+        }
+         /* Style for the copy feedback */
+        .copied {
+            background-color: #d1fae5; /* Light green background */
+            font-weight: bold;
+        }
+         /* Style for error feedback */
+         .copy-error {
+             background-color: #fee2e2; /* Light red background */
+             font-weight: bold;
+         }
+    </style>
 </head>
-<body style="background-color:powderblue; display: flex; align-items: center; justify-content: center; height: calc(100vh - 16px);">
-    <h1 id="skibiti" style="font-family: Roboto, sans-serif; text-align: center">loading</h1>
+<body class="bg-powderblue flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div id="colorInfoContainer" class="bg-white bg-opacity-90 backdrop-filter backdrop-blur-sm p-6 rounded-lg shadow-xl text-center max-w-md w-full mb-6 text-gray-900"> <div id="colorName" class="color-info-item text-2xl font-bold mb-4 p-1 rounded-md" data-original-text="Loading..."> Loading...
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2"> <div id="hexCode" class="color-info-item text-base font-mono p-1 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300" data-original-text="Loading..."> Loading...
+            </div>
+            <div id="rgbValue" class="color-info-item text-base font-mono p-1 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300" data-original-text="Loading..."> Loading...
+            </div>
+            <div id="hsvValue" class="color-info-item text-base font-mono p-1 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300" data-original-text="Loading..."> Loading...
+            </div>
+            <div id="cmykValue" class="color-info-item text-base font-mono p-1 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300" data-original-text="Loading..."> Loading...
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col items-center space-y-4 w-full max-w-md">
+        <button id="randomBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-md shadow-md transition duration-300 ease-in-out w-full flex-shrink-0">
+            Random Color
+        </button>
+
+        <div class="flex w-full">
+            <input type="text" id="hexInput" placeholder="Enter Hex Code (e.g., FF0000)" class="flex-grow border border-gray-300 rounded-l-md py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button id="searchBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-r-md shadow-md transition duration-300 ease-in-out flex-shrink-0">
+                Search
+            </button>
+        </div>
+    </div>
+
+    <div id="messageBox" class="mt-4 text-sm text-red-600 min-h-[1.5em]"></div>
+
+    <script>
+        // API URLs
+        const randomApiUrl = `https://hi-rewis.maxicode.workers.dev/?url=https://colornames.org/random/json`;
+        const searchApiBaseUrl = `https://hi-rewis.maxicode.workers.dev/?url=https://colornames.org/search/json/?hex=`;
+
+        // Get UI elements
+        const body = document.body;
+        const colorNameElement = document.getElementById("colorName");
+        const hexCodeElement = document.getElementById("hexCode");
+        const rgbValueElement = document.getElementById("rgbValue");
+        const hsvValueElement = document.getElementById("hsvValue");
+        const cmykValueElement = document.getElementById("cmykValue");
+        const randomBtn = document.getElementById("randomBtn");
+        const hexInput = document.getElementById("hexInput");
+        const searchBtn = document.getElementById("searchBtn");
+        const messageBox = document.getElementById("messageBox");
+
+        // --- Color Conversion Functions ---
+
+        // Hex to RGB conversion
+        function hexToRgb(hex) {
+            if (!hex || typeof hex !== 'string') return null;
+            hex = hex.replace(/^#/, '');
+            if (hex.length === 3) {
+                hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+            }
+            if (hex.length !== 6) return null;
+
+            const bigint = parseInt(hex, 16);
+            const r = (bigint >> 16) & 255;
+            const g = (bigint >> 8) & 255;
+            const b = bigint & 255;
+
+            return { r, g, b };
+        }
+
+        // RGB to HSV conversion
+        function rgbToHsv(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const delta = max - min;
+
+            let h, s, v = max;
+
+            if (delta === 0) {
+                h = 0;
+            } else if (max === r) {
+                h = ((g - b) / delta) % 6;
+            } else if (max === g) {
+                h = (b - r) / delta + 2;
+            } else {
+                h = (r - g) / delta + 4;
+            }
+
+            h = Math.round(h * 60);
+            if (h < 0) h += 360;
+
+            s = max === 0 ? 0 : delta / max;
+            s = Math.round(s * 100);
+            v = Math.round(v * 100);
+
+            return { h, s, v };
+        }
+
+        // RGB to CMYK conversion
+        function rgbToCmyk(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+
+            let c, m, y, k;
+
+            k = 1 - Math.max(r, g, b);
+            c = (1 - r - k) / (1 - k);
+            m = (1 - g - k) / (1 - k);
+            y = (1 - b - k) / (1 - k);
+
+            // Handle the case where k is 1 (black) to avoid division by zero
+            if (k === 1) {
+                c = 0;
+                m = 0;
+                y = 0;
+            }
+
+
+            c = Math.round(c * 100);
+            m = Math.round(m * 100);
+            y = Math.round(y * 100);
+            k = Math.round(k * 100);
+
+            return { c, m, y, k };
+        }
+
+        // --- Utility Functions ---
+
+        // Function to copy text to clipboard and show feedback
+        function copyToClipboard(element, textToCopy) {
+             // Clear any previous messages
+            messageBox.textContent = '';
+             // Remove previous feedback classes
+            element.classList.remove('copied', 'copy-error');
+
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                // Store original text before changing
+                const originalText = element.dataset.originalText;
+                element.textContent = 'Copied!';
+                element.classList.add('copied'); // Add copied feedback class
+                // Revert text back after a short delay
+                setTimeout(() => {
+                    element.textContent = originalText;
+                    element.classList.remove('copied');
+                }, 1500); // Show "Copied!" for 1.5 seconds
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                // Show an error message to the user
+                messageBox.textContent = 'Failed to copy to clipboard.';
+                element.textContent = 'Copy Failed!';
+                element.classList.add('copy-error'); // Add error feedback class
+                 setTimeout(() => {
+                    messageBox.textContent = '';
+                    element.textContent = element.dataset.originalText;
+                    element.classList.remove('copy-error');
+                }, 3000); // Clear error message after 3 seconds
+            });
+        }
+
+        // Function to update the UI with color data
+        function updateColorUI(data) {
+             // Clear any previous messages
+            messageBox.textContent = '';
+
+            if (!data || !data.hexCode || !data.name) {
+                messageBox.textContent = 'Invalid color data received.';
+                console.error("Invalid data structure:", data);
+                return;
+            }
+
+            const hexColor = "#" + data.hexCode;
+
+            // Update background color
+            body.style.backgroundColor = hexColor;
+
+            // Update color name
+            colorNameElement.textContent = data.name;
+            colorNameElement.dataset.originalText = data.name;
+
+            // Update Hex code
+            hexCodeElement.textContent = hexColor;
+            hexCodeElement.dataset.originalText = hexColor;
+
+            // Convert and update other color formats
+            const rgb = hexToRgb(data.hexCode);
+            if (rgb) {
+                const rgbString = `RGB(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+                rgbValueElement.textContent = rgbString;
+                rgbValueElement.dataset.originalText = rgbString;
+
+                const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+                const hsvString = `HSV(${hsv.h}°, ${hsv.s}%, ${hsv.v}%)`;
+                hsvValueElement.textContent = hsvString;
+                hsvValueElement.dataset.originalText = hsvString;
+
+                const cmyk = rgbToCmyk(rgb.r, rgb.g, rgb.b);
+                const cmykString = `CMYK(${cmyk.c}%, ${cmyk.m}%, ${cmyk.y}%, ${cmyk.k}%)`;
+                cmykValueElement.textContent = cmykString;
+                cmykValueElement.dataset.originalText = cmykString;
+
+            } else {
+                 // Handle case where hex to RGB conversion fails
+                 const errorText = 'Invalid Color';
+                 rgbValueElement.textContent = errorText;
+                 rgbValueElement.dataset.originalText = errorText;
+                 hsvValueElement.textContent = errorText;
+                 hsvValueElement.dataset.originalText = errorText;
+                 cmykValueElement.textContent = errorText;
+                 cmykValueElement.dataset.originalText = errorText;
+                 messageBox.textContent = 'Could not convert color formats.';
+            }
+        }
+
+        // Function to fetch a random color
+        function fetchRandomColor() {
+             // Clear any previous messages
+            messageBox.textContent = '';
+             // Show loading state
+            colorNameElement.textContent = 'Loading...';
+            hexCodeElement.textContent = 'Loading...';
+            rgbValueElement.textContent = 'Loading...';
+            hsvValueElement.textContent = 'Loading...';
+            cmykValueElement.textContent = 'Loading...';
+
+             // Reset original text datasets for loading state
+             colorNameElement.dataset.originalText = 'Loading...';
+             hexCodeElement.dataset.originalText = 'Loading...';
+             rgbValueElement.dataset.originalText = 'Loading...';
+             hsvValueElement.dataset.originalText = 'Loading...';
+             cmykValueElement.dataset.originalText = 'Loading...';
+
+             body.style.backgroundColor = '#f0f0f0'; // Default background color
+
+
+            fetch(randomApiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Random API Data:", data);
+                    updateColorUI(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching random color:', error);
+                    messageBox.textContent = 'Failed to fetch random color.';
+                    const errorText = 'Error';
+                    colorNameElement.textContent = errorText;
+                    hexCodeElement.textContent = errorText;
+                    rgbValueElement.textContent = errorText;
+                    hsvValueElement.textContent = errorText;
+                    cmykValueElement.textContent = errorText;
+                     colorNameElement.dataset.originalText = errorText;
+                     hexCodeElement.dataset.originalText = errorText;
+                     rgbValueElement.dataset.originalText = errorText;
+                     hsvValueElement.dataset.originalText = errorText;
+                     cmykValueElement.dataset.originalText = errorText;
+                });
+        }
+
+        // Function to search for a color by hex code
+        function searchColorByHex() {
+            // Clear any previous messages
+            messageBox.textContent = '';
+
+            let hex = hexInput.value.trim();
+
+            // Validate hex code format (allows with or without #)
+            const hexRegex = /^#?([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$/;
+            if (!hexRegex.test(hex)) {
+                messageBox.textContent = 'Please enter a valid hex code (e.g., FF0000 or #FF0000).';
+                return;
+            }
+
+            // Remove '#' if present
+            if (hex.startsWith('#')) {
+                hex = hex.slice(1);
+            }
+
+             // Show loading state
+            colorNameElement.textContent = 'Searching...';
+            hexCodeElement.textContent = `#${hex}`; // Display the hex being searched
+            rgbValueElement.textContent = '...';
+            hsvValueElement.textContent = '...';
+            cmykValueElement.textContent = '...';
+
+             // Reset original text datasets for loading state
+             colorNameElement.dataset.originalText = 'Searching...';
+             hexCodeElement.dataset.originalText = `#${hex}`;
+             rgbValueElement.dataset.originalText = '...';
+             hsvValueElement.dataset.originalText = '...';
+             cmykValueElement.dataset.originalText = '...';
+
+             body.style.backgroundColor = `#${hex}`; // Set background to the hex being searched
+
+
+            const searchApiUrl = searchApiBaseUrl + hex;
+
+            fetch(searchApiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                     console.log("Search API Data:", data);
+                     if (data && data.name && data.hexCode) {
+                         updateColorUI(data);
+                     } else {
+                         // API returned success but no valid color data
+                         messageBox.textContent = `No specific color name found for hex #${hex}.`;
+                         // Update UI with just the hex and calculated values
+                         const dummyData = { hexCode: hex, name: 'Unknown Color' }; // Create dummy data structure
+                         updateColorUI(dummyData);
+                         colorNameElement.textContent = 'Unknown Color'; // Explicitly set name
+                         colorNameElement.dataset.originalText = 'Unknown Color';
+                     }
+                })
+                .catch(error => {
+                    console.error('Error searching color:', error);
+                    messageBox.textContent = 'Failed to search color.';
+                    const errorText = 'Error';
+                    colorNameElement.textContent = errorText;
+                    hexCodeElement.textContent = errorText;
+                    rgbValueElement.textContent = errorText;
+                    hsvValueElement.textContent = errorText;
+                    cmykValueElement.textContent = errorText;
+                     colorNameElement.dataset.originalText = errorText;
+                     hexCodeElement.dataset.originalText = errorText;
+                     rgbValueElement.dataset.originalText = errorText;
+                     hsvValueElement.dataset.originalText = errorText;
+                     cmykValueElement.dataset.originalText = errorText;
+                });
+        }
+
+        // Add event listeners
+        randomBtn.addEventListener('click', fetchRandomColor);
+        searchBtn.addEventListener('click', searchColorByHex);
+
+        // Allow searching by pressing Enter in the input field
+        hexInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                searchColorByHex();
+            }
+        });
+
+        // Add click listeners for copying
+        colorNameElement.addEventListener('click', () => {
+            copyToClipboard(colorNameElement, colorNameElement.textContent);
+        });
+
+        hexCodeElement.addEventListener('click', () => {
+            copyToClipboard(hexCodeElement, hexCodeElement.textContent);
+        });
+         rgbValueElement.addEventListener('click', () => {
+            copyToClipboard(rgbValueElement, rgbValueElement.textContent);
+        });
+         hsvValueElement.addEventListener('click', () => {
+            copyToClipboard(hsvValueElement, hsvValueElement.textContent);
+        });
+         cmykValueElement.addEventListener('click', () => {
+            copyToClipboard(cmykValueElement, cmykValueElement.textContent);
+        });
+
+
+        // Fetch an initial random color on page load
+        fetchRandomColor();
+
+    </script>
 </body>
-<title>Colorizer</title>    
 </html>
-
-<script>
-
-let apiUrl = `https://hi-rewis.maxicode.workers.dev/?url=https://colornames.org/random/json`;
-
-apiData = {};
-// Make a GET request
-fetch(apiUrl)
-  .then(response => response.json())
-  .then(data => {
-    console.log(data);
-    //filter(data);
-    apiData = data;
-    document.body.style.backgroundColor = "#" + data.hexCode;
-	const skibiti = document.getElementById("skibiti")
-    skibiti.textContent = data.name;
-    skibiti.style.color = "#" + [data.hexCode.slice(0, 2),data.hexCode.slice(2, 4),data.hexCode.slice(4, 6)].map(x => (255-parseInt(x, 16)).toString(16)).join("")
-    console.log(data.hexCode);
-    //console.log(apiData)
-  })
-  .catch(error => console.error('Error fetching colornames/hi-rewis api:', error));
-//document.body.style.backgroundColor = apiData.hexCode; 
-//console.log(data.hexCode);
-</script>
